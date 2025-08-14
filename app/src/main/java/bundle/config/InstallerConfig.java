@@ -1,15 +1,17 @@
 package bundle.config;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import java.util.List;
+import java.util.Map;
+import java.util.LinkedHashMap;
+import java.util.ArrayList;
 
 public final class InstallerConfig {
-    public final ImmutableMap<String, DownloadConfig> configs;
-    public final ImmutableList<String> configNames;
+    public final Map<String, DownloadConfig> configs;
+    public final List<String> configNames;
 
-    private InstallerConfig(ImmutableMap<String, DownloadConfig> configs, ImmutableList<String> configNames) {
-        this.configs = configs;
-        this.configNames = configNames;
+    private InstallerConfig(Map<String, DownloadConfig> configs, List<String> configNames) {
+        this.configs = Map.copyOf(configs);
+        this.configNames = List.copyOf(configNames);
     }
 
     @Override
@@ -18,8 +20,8 @@ public final class InstallerConfig {
     }
 
     public static class Builder {
-        private final ImmutableMap.Builder<String, DownloadConfig> configs = new ImmutableMap.Builder<>();
-        private final ImmutableList.Builder<String> configNames = new ImmutableList.Builder<>();
+        private final Map<String, DownloadConfig> configs = new LinkedHashMap<>();
+        private final List<String> configNames = new ArrayList<>();
 
         public Builder with(String id, DownloadConfig download) {
             configs.put(id, download);
@@ -28,7 +30,7 @@ public final class InstallerConfig {
         }
 
         public InstallerConfig build() {
-            return new InstallerConfig(configs.build(), configNames.build());
+            return new InstallerConfig(configs, configNames);
         }
     }
 }

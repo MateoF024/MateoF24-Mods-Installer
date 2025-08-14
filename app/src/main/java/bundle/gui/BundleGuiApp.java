@@ -1,7 +1,7 @@
 package bundle.gui;
 
 import bundle.download.DownloadException;
-import bundle.download.DownloadProgressTracker;
+import bundle.download.DownloadManager;
 import bundle.download.ProgressCallback;
 import bundle.installer.BundleInstaller;
 import javax.swing.*;
@@ -25,9 +25,6 @@ public class BundleGuiApp extends JFrame {
     private static final Color COLOR_PROGRESS_BG = new Color(70, 72, 74);
     private static final Insets DEFAULT_INSETS = new Insets(8, 8, 8, 8);
     private static final int CORNER_RADIUS = 21;
-    private volatile String currentFileName = "";
-    private volatile long currentFileTotal = 0;
-    private volatile double currentDownloadSpeed = 0;
 
     private final BundleInstaller installer;
     private final CardLayout cards = new CardLayout();
@@ -45,9 +42,7 @@ public class BundleGuiApp extends JFrame {
     private JLabel statusLabel;
     private JLabel progressLabel;
     private JPanel progressPanel;
-    private JLabel lblModpacks; // Agregada referencia a la etiqueta
-
-    private Image appIconImage = null;
+    private JLabel lblModpacks;
 
     public BundleGuiApp(BundleInstaller installer) {
         super(installer.installerProperties.getProperty("window_title"));
@@ -62,7 +57,6 @@ public class BundleGuiApp extends JFrame {
         setSize(w, h);
         setResizable(Boolean.parseBoolean(installer.installerProperties.getProperty("resizable")));
 
-        // Aplicar bordes redondeados
         setShape(new RoundRectangle2D.Double(0, 0, w, h, CORNER_RADIUS, CORNER_RADIUS));
         getRootPane().setBorder(BorderFactory.createLineBorder(new Color(0, 0, 0,100)));
 
@@ -76,8 +70,6 @@ public class BundleGuiApp extends JFrame {
 
         centerWindow();
     }
-
-    /* ----------------------- Construcción de UI ----------------------- */
 
     private JPanel wrapCenter(JComponent inner) {
         JPanel wrapper = new JPanel(new GridBagLayout());
@@ -97,28 +89,22 @@ public class BundleGuiApp extends JFrame {
 
         JPanel left = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 6));
         left.setOpaque(false);
-        JLabel iconLabel = new JLabel();
-        if (appIconImage != null) {
-            Image scaled = appIconImage.getScaledInstance(20, 20, Image.SCALE_SMOOTH);
-            iconLabel.setIcon(new ImageIcon(scaled));
-        }
+
         JLabel titleLabel = new JLabel(getTitle());
         titleLabel.setFont(FONT_BOLD);
         titleLabel.setForeground(COLOR_TEXT);
-        left.add(iconLabel);
         left.add(titleLabel);
 
         JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 4));
         right.setOpaque(false);
-        JButton btnMin = createTitleButton("\u2014"); // —
-        JButton btnMax = createTitleButton("\u25A1"); // □ (deshabilitado)
-        JButton btnClose = createTitleButton("\u2715"); // ✕
+        JButton btnMin = createTitleButton("\u2014");
+        JButton btnMax = createTitleButton("\u25A1");
+        JButton btnClose = createTitleButton("\u2715");
 
         btnMin.addActionListener(e -> setState(Frame.ICONIFIED));
 
-        // Deshabilitar maximizar
         btnMax.setEnabled(false);
-        btnMax.setForeground(new Color(100, 100, 100)); // Color gris para mostrar que está deshabilitado
+        btnMax.setForeground(new Color(100, 100, 100));
         btnMax.setCursor(Cursor.getPredefinedCursor(Cursor.DEFAULT_CURSOR));
 
         btnClose.addActionListener(e -> {
@@ -141,7 +127,6 @@ public class BundleGuiApp extends JFrame {
                 Point p = getLocation();
                 setLocation(p.x + e.getX() - dragStart.x, p.y + e.getY() - dragStart.y);
             }
-            // Remover doble click para maximizar
         };
         titleBar.addMouseListener(ma);
         titleBar.addMouseMotionListener(ma);
@@ -230,7 +215,7 @@ public class BundleGuiApp extends JFrame {
         });
         panel.add(btnBuscar, gbc);
 
-        // Panel de progreso mejorado
+        // Panel de progreso
         gbc.gridy = 2;
         gbc.gridx = 0;
         gbc.gridwidth = 3;
@@ -263,18 +248,15 @@ public class BundleGuiApp extends JFrame {
     }
 
     private JPanel createProgressPanel() {
-        // Panel principal con GridBagLayout para centrado perfecto
         JPanel mainPanel = new JPanel(new GridBagLayout());
         mainPanel.setOpaque(false);
         mainPanel.setBorder(new EmptyBorder(20, 20, 20, 20));
 
-        // Panel interno que contiene todos los elementos de progreso
         JPanel progressContainer = new JPanel();
         progressContainer.setLayout(new BoxLayout(progressContainer, BoxLayout.Y_AXIS));
         progressContainer.setOpaque(false);
         progressContainer.setBorder(new EmptyBorder(15, 15, 15, 15));
 
-        // Estado actual - centrado
         statusLabel = new JLabel("Preparando instalación...", SwingConstants.CENTER);
         statusLabel.setFont(FONT_NORMAL);
         statusLabel.setForeground(COLOR_TEXT);
@@ -282,23 +264,18 @@ public class BundleGuiApp extends JFrame {
         statusLabel.setHorizontalAlignment(SwingConstants.CENTER);
         progressContainer.add(statusLabel);
 
-        // Espaciado
         progressContainer.add(Box.createVerticalStrut(12));
 
-        // Barra de progreso - centrada
         progressBar = createModernProgressBar();
         progressBar.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        // Panel wrapper para la barra de progreso con tamaño fijo
         JPanel progressBarWrapper = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 0));
         progressBarWrapper.setOpaque(false);
         progressBarWrapper.add(progressBar);
         progressContainer.add(progressBarWrapper);
 
-        // Espaciado
         progressContainer.add(Box.createVerticalStrut(8));
 
-        // Etiqueta de porcentaje - centrada
         progressLabel = new JLabel("0%", SwingConstants.CENTER);
         progressLabel.setFont(FONT_SMALL);
         progressLabel.setForeground(new Color(180, 180, 180));
@@ -306,7 +283,6 @@ public class BundleGuiApp extends JFrame {
         progressLabel.setHorizontalAlignment(SwingConstants.CENTER);
         progressContainer.add(progressLabel);
 
-        // Centrar el container completo en el panel principal
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.gridx = 0;
         gbc.gridy = 0;
@@ -316,7 +292,6 @@ public class BundleGuiApp extends JFrame {
         gbc.fill = GridBagConstraints.NONE;
 
         mainPanel.add(progressContainer, gbc);
-
         return mainPanel;
     }
 
@@ -331,16 +306,13 @@ public class BundleGuiApp extends JFrame {
                 int height = getHeight();
                 int progressWidth = (int) ((double) getValue() / getMaximum() * width);
 
-                // Fondo de la barra
                 g2.setColor(COLOR_PROGRESS_BG);
                 g2.fillRoundRect(0, 0, width, height, 6, 6);
 
-                // Progreso
                 if (progressWidth > 0) {
                     g2.setColor(COLOR_PRIMARY);
                     g2.fillRoundRect(0, 0, progressWidth, height, 6, 6);
 
-                    // Efecto de brillo
                     g2.setColor(new Color(255, 255, 255, 30));
                     g2.fillRoundRect(0, 0, progressWidth, height / 2, 6, 6);
                 }
@@ -350,7 +322,6 @@ public class BundleGuiApp extends JFrame {
         };
 
         bar.setValue(0);
-        // Tamaño fijo más grande para mejor visibilidad
         bar.setPreferredSize(new Dimension(350, 14));
         bar.setMinimumSize(new Dimension(350, 14));
         bar.setMaximumSize(new Dimension(350, 14));
@@ -395,8 +366,6 @@ public class BundleGuiApp extends JFrame {
 
         return panel;
     }
-
-    /* ----------------------- Componentes estilizados ----------------------- */
 
     private JComboBox<String> createModernComboBox(String[] items) {
         JComboBox<String> combo = new JComboBox<>(items);
@@ -456,20 +425,12 @@ public class BundleGuiApp extends JFrame {
                 BorderFactory.createEmptyBorder(6, 8, 6, 8)));
     }
 
-
-
-
-    /* ----------------------- Install logic mejorado ----------------------- */
-
     private void performInstall() {
-        // Crear callback de progreso real
         ProgressCallback progressCallback = new ProgressCallback() {
             @Override
             public void onDownloadStart(String fileName, long totalBytes) {
-                currentFileName = fileName;
-                currentFileTotal = totalBytes;
                 SwingUtilities.invokeLater(() -> {
-                    statusLabel.setText("Descargando: " + fileName + "...");
+                    statusLabel.setText("Descargando: " + fileName);
                     progressBar.setValue(0);
                     progressLabel.setText("0% - Iniciando descarga...");
                 });
@@ -477,20 +438,17 @@ public class BundleGuiApp extends JFrame {
 
             @Override
             public void onProgress(long bytesDownloaded, long totalBytes, double downloadSpeed, String fileName) {
-                currentDownloadSpeed = downloadSpeed;
-                int percentage = (totalBytes > 0) ? (int) ((bytesDownloaded * 100) / totalBytes) : 0;
+                // Hacer las variables finales para usar en lambda
+                final int percentage = Math.min(100, (totalBytes > 0) ? (int) ((bytesDownloaded * 100) / totalBytes) : 0);
+                final String speedText = DownloadManager.formatSpeed(downloadSpeed);
+                final String sizeText = DownloadManager.formatBytes(bytesDownloaded);
+                final String totalText = (totalBytes > 0) ? DownloadManager.formatBytes(totalBytes) : "Desconocido";
 
                 SwingUtilities.invokeLater(() -> {
                     progressBar.setValue(percentage);
-
-                    String speedText = DownloadProgressTracker.formatSpeed(downloadSpeed);
-                    String sizeText = DownloadProgressTracker.formatBytes(bytesDownloaded);
-                    String totalText = (totalBytes > 0) ? DownloadProgressTracker.formatBytes(totalBytes) : "Desconocido";
-
                     progressLabel.setText(String.format("%d%% - %s (%s/%s)",
                             percentage, speedText, sizeText, totalText));
-
-                    statusLabel.setText("Descargando: " + fileName + "...");
+                    statusLabel.setText("Descargando: " + fileName);
                 });
             }
 
@@ -510,24 +468,21 @@ public class BundleGuiApp extends JFrame {
             @Override
             protected Boolean doInBackground() {
                 try {
-                    // Inicio real de instalación
                     SwingUtilities.invokeLater(() -> {
                         statusLabel.setText("Preparando instalación...");
                         progressBar.setValue(0);
                         progressLabel.setText("0% - Preparando...");
                     });
 
-                    // Llamar al instalador con el callback de progreso real
                     installer.install(progressCallback);
 
-                    // Procesamiento final
                     SwingUtilities.invokeLater(() -> {
                         statusLabel.setText("Procesando archivos descargados...");
                         progressBar.setValue(95);
                         progressLabel.setText("95% - Finalizando...");
                     });
 
-                    Thread.sleep(1000); // Breve pausa para mostrar finalización
+                    Thread.sleep(500); // Delay reducido
 
                     SwingUtilities.invokeLater(() -> {
                         statusLabel.setText("¡Instalación completada!");
@@ -535,7 +490,7 @@ public class BundleGuiApp extends JFrame {
                         progressLabel.setText("100% - ¡Completado!");
                     });
 
-                    Thread.sleep(500);
+                    Thread.sleep(300); // Delay reducido
                     return true;
 
                 } catch (IOException | DownloadException e) {
@@ -558,7 +513,7 @@ public class BundleGuiApp extends JFrame {
                         JOptionPane.showMessageDialog(BundleGuiApp.this,
                                 "Error durante la instalación: " + errorMessage,
                                 "Error", JOptionPane.ERROR_MESSAGE);
-                        // Restaurar interfaz
+
                         lblModpacks.setVisible(true);
                         combo.setVisible(true);
                         btnBuscar.setVisible(true);
@@ -577,8 +532,6 @@ public class BundleGuiApp extends JFrame {
         worker.execute();
     }
 
-    /* ----------------------- Métodos públicos auxiliares ----------------------- */
-
     public void open() {
         SwingUtilities.invokeLater(() -> setVisible(true));
     }
@@ -587,23 +540,17 @@ public class BundleGuiApp extends JFrame {
         try {
             JFileChooser fileSelect = new JFileChooser();
 
-            // Configurar el FileChooser para evitar problemas con carpetas especiales de Windows
             fileSelect.setFileSystemView(javax.swing.filechooser.FileSystemView.getFileSystemView());
             fileSelect.setCurrentDirectory(installer.gameDir.toFile());
             fileSelect.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
             fileSelect.setDialogTitle("Selecciona la ruta de instalación del modpack");
-
-            // Deshabilitar la navegación a carpetas especiales problemáticas
             fileSelect.setAcceptAllFileFilterUsed(false);
-
-            // Configurar para que no muestre archivos ocultos ni de sistema
             fileSelect.setFileHidingEnabled(true);
 
             if (fileSelect.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
                 java.io.File selectedFile = fileSelect.getSelectedFile();
                 if (selectedFile != null && selectedFile.exists() && selectedFile.isDirectory()) {
                     installer.gameDir = selectedFile.toPath();
-                    // Actualizar el campo de texto si está visible
                     if (filePath.isVisible()) {
                         filePath.setText(installer.gameDir.toString());
                     }
@@ -614,15 +561,11 @@ public class BundleGuiApp extends JFrame {
                 }
             }
         } catch (Exception e) {
-            // Fallback en caso de que JFileChooser falle completamente
             System.err.println("Error en JFileChooser, usando fallback: " + e.getMessage());
             showManualPathDialog();
         }
     }
 
-    /**
-     * Método fallback para seleccionar directorio manualmente si JFileChooser falla
-     */
     private void showManualPathDialog() {
         String currentPath = installer.gameDir.toString();
         String newPath = JOptionPane.showInputDialog(this,
@@ -654,10 +597,4 @@ public class BundleGuiApp extends JFrame {
         Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
         setLocation((screenSize.width - getWidth()) / 2, (screenSize.height - getHeight()) / 2);
     }
-
-    // Método para conectar con el progreso real del DownloadManager
-    public void setRealProgress(int progress, String status) {
-        updateProgress(progress, status);
-    }
 }
-
