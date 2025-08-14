@@ -1,0 +1,2 @@
+rootProject.name = 'bundle_installer'
+include('app')
