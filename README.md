@@ -10,5 +10,6 @@ Dichos packs se encuentran gestionados por mi y pueden cambiar, agregarse o ser 
 
 *Simplemente se trata del conjunto de mods/configs/resourcepacks que conforman al modpack*
 
-Dentro de Realeses se encuentran los distintos Modpacks disponibles para descarga manual
+Dentro de Realeses se encuentran los distintos Modpacks disponibles para descarga manual.
+
 Todos los mods se encuentran disponibles en sus respectivos sitios oficiales y descargables via modrinth o curseforge!
