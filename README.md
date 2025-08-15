@@ -4,3 +4,5 @@ Aplicación basica personal para la instalación y gestión de modpacks de Minec
 El propisito es facilitar la instalacion de mods para mis amigos
 
 La app descarga de manera directa los modpacks en formato .zip, dichos packs se encuentran gestionados por mi y pueden cambiar, agregarse o ser eliminados.
+
+Dentro de Realeses se encuentran los distintos Modpacks disponibles
